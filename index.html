@@ -309,13 +309,13 @@
 
       const handleSave = async () => {
         if (!formData.client || !formData.campaignName) return;
-        if (formData.mediaData) {
-          localStorage.setItem(MEDIA_PREFIX + formData.id, formData.mediaData);
-        } else {
-          localStorage.removeItem(MEDIA_PREFIX + formData.id);
-        }
         try {
           if (editingId && formData.airtableId) {
+            if (formData.mediaData) {
+              localStorage.setItem(MEDIA_PREFIX + formData.id, formData.mediaData);
+            } else {
+              localStorage.removeItem(MEDIA_PREFIX + formData.id);
+            }
             await fetch(AT_URL + "/" + formData.airtableId, {
               method: "PATCH",
               headers: { "Authorization": "Bearer " + AT_KEY, "Content-Type": "application/json" },
@@ -325,6 +325,9 @@
           } else {
             const newId = Date.now().toString();
             const newAd = { ...formData, id: newId };
+            if (newAd.mediaData) {
+              localStorage.setItem(MEDIA_PREFIX + newId, newAd.mediaData);
+            }
             const res = await fetch(AT_URL, {
               method: "POST",
               headers: { "Authorization": "Bearer " + AT_KEY, "Content-Type": "application/json" },
