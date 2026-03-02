@@ -24,8 +24,10 @@
     const { useState, useEffect, useCallback, useRef } = React;
 
     const AT_KEY = ["patE3pKIZVZjdmNFC", "0a09eae0d53eca689c7e01868b16839260d2d84f942f86379878dba4d5cf4413"].join(".");
-    const AT_URL = "https://api.airtable.com/v0/appT08Cl4u2lVE1Td/tblbVSfTfYu1dmcTP";
-    const MEDIA_PREFIX = "ad-vault-media-";
+    const AT_BASE_ID = "appT08Cl4u2lVE1Td";
+    const AT_URL = "https://api.airtable.com/v0/" + AT_BASE_ID + "/tblbVSfTfYu1dmcTP";
+    const AT_CONTENT_URL = "https://content.airtable.com/v0/" + AT_BASE_ID;
+    const MEDIA_FIELD_ID = "fldi4PsEyOqwxlmPu";
 
     const DEFAULT_DATA = [
       {
@@ -159,7 +161,10 @@
 
     function recordToAd(record) {
       var f = record.fields;
-      var mediaData = localStorage.getItem(MEDIA_PREFIX + f.ID) || "";
+      var attachment = f["Media"] && f["Media"].length > 0 ? f["Media"][0] : null;
+      var mediaUrl = attachment ? attachment.url : "";
+      var mediaName = attachment ? attachment.filename : "";
+      var mediaType = attachment ? (attachment.type && attachment.type.startsWith("video/") ? "video" : "image") : "";
       return {
         id: f.ID || record.id,
         airtableId: record.id,
@@ -176,9 +181,9 @@
         date: f["Fecha"] || "",
         team: f["Equipo"] || "",
         notes: f["Notas"] || "",
-        mediaData: mediaData,
-        mediaType: f["Tipo de Media"] || "",
-        mediaName: f["Nombre de Media"] || "",
+        mediaData: mediaUrl,
+        mediaType: mediaType,
+        mediaName: mediaName,
       };
     }
 
@@ -198,9 +203,28 @@
         "Fecha": ad.date,
         "Equipo": ad.team,
         "Notas": ad.notes,
-        "Tipo de Media": ad.mediaType,
-        "Nombre de Media": ad.mediaName,
       };
+    }
+
+    async function uploadMediaToAirtable(airtableRecordId, mediaData, mediaName, mediaType) {
+      if (!mediaData || !airtableRecordId) return;
+      if (mediaData.startsWith("http")) return;
+      try {
+        var base64 = mediaData.split(",")[1];
+        var mimeType = mediaType === "video" ? "video/mp4" : "image/jpeg";
+        if (mediaName) {
+          var ext = mediaName.split(".").pop().toLowerCase();
+          var mimeMap = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", mp4: "video/mp4", mov: "video/quicktime", avi: "video/x-msvideo" };
+          if (mimeMap[ext]) mimeType = mimeMap[ext];
+        }
+        await fetch(AT_CONTENT_URL + "/" + airtableRecordId + "/" + MEDIA_FIELD_ID + "/uploadAttachment", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + AT_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ contentType: mimeType, filename: mediaName || "media", file: base64 })
+        });
+      } catch (e) {
+        console.error("Error subiendo media a Airtable:", e);
+      }
     }
 
     function AdVault() {
@@ -311,30 +335,38 @@
         if (!formData.client || !formData.campaignName) return;
         try {
           if (editingId && formData.airtableId) {
-            if (formData.mediaData) {
-              localStorage.setItem(MEDIA_PREFIX + formData.id, formData.mediaData);
-            } else {
-              localStorage.removeItem(MEDIA_PREFIX + formData.id);
-            }
             await fetch(AT_URL + "/" + formData.airtableId, {
               method: "PATCH",
               headers: { "Authorization": "Bearer " + AT_KEY, "Content-Type": "application/json" },
               body: JSON.stringify({ fields: adToFields(formData) })
             });
-            setAds(ads.map((a) => a.id === editingId ? { ...formData, id: editingId } : a));
+            if (formData.mediaData && !formData.mediaData.startsWith("http")) {
+              await uploadMediaToAirtable(formData.airtableId, formData.mediaData, formData.mediaName, formData.mediaType);
+              const refreshed = await fetch(AT_URL + "/" + formData.airtableId, { headers: { "Authorization": "Bearer " + AT_KEY } });
+              const refreshedData = await refreshed.json();
+              const updatedAd = recordToAd(refreshedData);
+              setAds(ads.map((a) => a.id === editingId ? updatedAd : a));
+            } else {
+              setAds(ads.map((a) => a.id === editingId ? { ...formData, id: editingId } : a));
+            }
           } else {
             const newId = Date.now().toString();
             const newAd = { ...formData, id: newId };
-            if (newAd.mediaData) {
-              localStorage.setItem(MEDIA_PREFIX + newId, newAd.mediaData);
-            }
             const res = await fetch(AT_URL, {
               method: "POST",
               headers: { "Authorization": "Bearer " + AT_KEY, "Content-Type": "application/json" },
               body: JSON.stringify({ fields: adToFields(newAd) })
             });
             const data = await res.json();
-            setAds([...ads, { ...newAd, airtableId: data.id }]);
+            if (newAd.mediaData) {
+              await uploadMediaToAirtable(data.id, newAd.mediaData, newAd.mediaName, newAd.mediaType);
+              const refreshed = await fetch(AT_URL + "/" + data.id, { headers: { "Authorization": "Bearer " + AT_KEY } });
+              const refreshedData = await refreshed.json();
+              const createdAd = recordToAd(refreshedData);
+              setAds([...ads, createdAd]);
+            } else {
+              setAds([...ads, { ...newAd, airtableId: data.id }]);
+            }
           }
         } catch (e) {
           console.error("Error guardando en Airtable:", e);
@@ -361,7 +393,6 @@
               headers: { "Authorization": "Bearer " + AT_KEY }
             });
           }
-          localStorage.removeItem(MEDIA_PREFIX + id);
           setAds(ads.filter((a) => a.id !== id));
         } catch (e) {
           console.error("Error eliminando de Airtable:", e);
