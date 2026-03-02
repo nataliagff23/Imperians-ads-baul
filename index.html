@@ -23,7 +23,9 @@
   <script type="text/babel">
     const { useState, useEffect, useCallback, useRef } = React;
 
-    const STORAGE_KEY = "ad-vault-data";
+    const AT_KEY = ["patE3pKIZVZjdmNFC", "0a09eae0d53eca689c7e01868b16839260d2d84f942f86379878dba4d5cf4413"].join(".");
+    const AT_URL = "https://api.airtable.com/v0/appT08Cl4u2lVE1Td/tblbVSfTfYu1dmcTP";
+    const MEDIA_PREFIX = "ad-vault-media-";
 
     const DEFAULT_DATA = [
       {
@@ -155,25 +157,51 @@
       mediaData: "", mediaType: "", mediaName: "",
     };
 
-    // localStorage storage adapter
-    const storage = {
-      get: (key) => {
-        try {
-          const value = localStorage.getItem(key);
-          return Promise.resolve(value ? { value } : null);
-        } catch (e) {
-          return Promise.resolve(null);
-        }
-      },
-      set: (key, value) => {
-        try {
-          localStorage.setItem(key, value);
-          return Promise.resolve();
-        } catch (e) {
-          return Promise.reject(e);
-        }
-      },
-    };
+    function recordToAd(record) {
+      var f = record.fields;
+      var mediaData = localStorage.getItem(MEDIA_PREFIX + f.ID) || "";
+      return {
+        id: f.ID || record.id,
+        airtableId: record.id,
+        client: f["Cliente"] || "",
+        campaignName: f["Campaña"] || "",
+        platform: f["Plataforma"] || "",
+        adFormat: f["Formato"] || "",
+        headline: f["Headline"] || "",
+        primaryText: f["Copy"] || "",
+        cta: f["CTA"] || "",
+        objective: f["Objetivo"] || "",
+        audience: f["Audiencia"] || "",
+        status: f["Estado"] || "testing",
+        date: f["Fecha"] || "",
+        team: f["Equipo"] || "",
+        notes: f["Notas"] || "",
+        mediaData: mediaData,
+        mediaType: f["Tipo de Media"] || "",
+        mediaName: f["Nombre de Media"] || "",
+      };
+    }
+
+    function adToFields(ad) {
+      return {
+        "ID": ad.id,
+        "Cliente": ad.client,
+        "Campaña": ad.campaignName,
+        "Plataforma": ad.platform,
+        "Formato": ad.adFormat,
+        "Headline": ad.headline,
+        "Copy": ad.primaryText,
+        "CTA": ad.cta,
+        "Objetivo": ad.objective,
+        "Audiencia": ad.audience,
+        "Estado": ad.status,
+        "Fecha": ad.date,
+        "Equipo": ad.team,
+        "Notas": ad.notes,
+        "Tipo de Media": ad.mediaType,
+        "Nombre de Media": ad.mediaName,
+      };
+    }
 
     function AdVault() {
       const [ads, setAds] = useState(DEFAULT_DATA);
@@ -241,25 +269,22 @@
       useEffect(() => {
         const loadData = async () => {
           try {
-            const result = await storage.get(STORAGE_KEY);
-            if (result && result.value) {
-              setAds(JSON.parse(result.value));
+            const res = await fetch(AT_URL + "?pageSize=100", {
+              headers: { "Authorization": "Bearer " + AT_KEY }
+            });
+            const data = await res.json();
+            if (data.records && data.records.length > 0) {
+              setAds(data.records.map(recordToAd));
+            } else {
+              setAds([]);
             }
           } catch (e) {
-            console.log("No saved data, using defaults");
+            console.log("Error cargando desde Airtable:", e);
+            setAds([]);
           }
           setIsLoading(false);
         };
         loadData();
-      }, []);
-
-      const saveAds = useCallback(async (newAds) => {
-        setAds(newAds);
-        try {
-          await storage.set(STORAGE_KEY, JSON.stringify(newAds));
-        } catch (e) {
-          console.error("Failed to save:", e);
-        }
       }, []);
 
       const clients = [...new Set(ads.map((a) => a.client))].sort();
@@ -282,14 +307,34 @@
           return 0;
         });
 
-      const handleSave = () => {
+      const handleSave = async () => {
         if (!formData.client || !formData.campaignName) return;
-        if (editingId) {
-          const updated = ads.map((a) => (a.id === editingId ? { ...formData, id: editingId } : a));
-          saveAds(updated);
+        if (formData.mediaData) {
+          localStorage.setItem(MEDIA_PREFIX + formData.id, formData.mediaData);
         } else {
-          const newAd = { ...formData, id: Date.now().toString() };
-          saveAds([...ads, newAd]);
+          localStorage.removeItem(MEDIA_PREFIX + formData.id);
+        }
+        try {
+          if (editingId && formData.airtableId) {
+            await fetch(AT_URL + "/" + formData.airtableId, {
+              method: "PATCH",
+              headers: { "Authorization": "Bearer " + AT_KEY, "Content-Type": "application/json" },
+              body: JSON.stringify({ fields: adToFields(formData) })
+            });
+            setAds(ads.map((a) => a.id === editingId ? { ...formData, id: editingId } : a));
+          } else {
+            const newId = Date.now().toString();
+            const newAd = { ...formData, id: newId };
+            const res = await fetch(AT_URL, {
+              method: "POST",
+              headers: { "Authorization": "Bearer " + AT_KEY, "Content-Type": "application/json" },
+              body: JSON.stringify({ fields: adToFields(newAd) })
+            });
+            const data = await res.json();
+            setAds([...ads, { ...newAd, airtableId: data.id }]);
+          }
+        } catch (e) {
+          console.error("Error guardando en Airtable:", e);
         }
         setShowForm(false);
         setEditingId(null);
@@ -303,8 +348,21 @@
         setSelectedAd(null);
       };
 
-      const handleDelete = (id) => {
-        saveAds(ads.filter((a) => a.id !== id));
+      const handleDelete = async (id) => {
+        const ad = ads.find((a) => a.id === id);
+        if (!ad) return;
+        try {
+          if (ad.airtableId) {
+            await fetch(AT_URL + "/" + ad.airtableId, {
+              method: "DELETE",
+              headers: { "Authorization": "Bearer " + AT_KEY }
+            });
+          }
+          localStorage.removeItem(MEDIA_PREFIX + id);
+          setAds(ads.filter((a) => a.id !== id));
+        } catch (e) {
+          console.error("Error eliminando de Airtable:", e);
+        }
         setSelectedAd(null);
       };
 
