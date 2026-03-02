@@ -28,6 +28,7 @@
     const AT_URL = "https://api.airtable.com/v0/" + AT_BASE_ID + "/tblbVSfTfYu1dmcTP";
     const AT_CONTENT_URL = "https://content.airtable.com/v0/" + AT_BASE_ID;
     const MEDIA_FIELD_ID = "fldi4PsEyOqwxlmPu";
+    const VAULT_PASSWORD = "imperians2025";
 
     const DEFAULT_DATA = [
       {
@@ -227,7 +228,99 @@
       }
     }
 
-    function AdVault() {
+    function Login({ onLogin }) {
+      const [pwd, setPwd] = useState("");
+      const [error, setError] = useState(false);
+      const [shake, setShake] = useState(false);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (pwd === VAULT_PASSWORD) {
+          sessionStorage.setItem("imp_auth", "1");
+          onLogin();
+        } else {
+          setError(true);
+          setShake(true);
+          setTimeout(() => setShake(false), 500);
+        }
+      };
+
+      const logoEl = document.querySelector('img[alt="Imperians Agency"]');
+      const logoSrc = logoEl ? logoEl.src : "";
+
+      return (
+        <div style={{
+          minHeight: "100vh", background: "#0a0a0f",
+          backgroundImage: "radial-gradient(ellipse at 30% 0%, rgba(2,40,65,0.6) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(99,102,241,0.08) 0%, transparent 60%)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: "'Poppins', sans-serif",
+        }}>
+          <div style={{
+            width: "100%", maxWidth: "420px", padding: "0 24px",
+            animation: shake ? "shake 0.5s ease" : "none",
+          }}>
+            <style>{".imp-login-card { animation: fadeIn 0.5s ease; } @keyframes fadeIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } } @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }"}</style>
+            <div className="imp-login-card" style={{
+              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "24px", padding: "48px 40px", backdropFilter: "blur(20px)",
+              boxShadow: "0 32px 80px rgba(0,0,0,0.5)",
+            }}>
+              <div style={{ textAlign: "center", marginBottom: "40px" }}>
+                {logoSrc
+                  ? <img src={logoSrc} alt="Imperians Agency" style={{ height: "56px", objectFit: "contain", marginBottom: "20px" }} />
+                  : <div style={{ fontSize: "22px", fontFamily: "'Cinzel',serif", color: "#fff", marginBottom: "20px" }}>IMPERIANS AGENCY</div>
+                }
+                <div style={{ fontSize: "13px", color: "#475569", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600 }}>
+                  Bóveda de Anuncios Ganadores
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit}>
+                <div style={{ marginBottom: "20px" }}>
+                  <label style={{ display: "block", fontSize: "12px", color: "#64748b", fontWeight: 600, marginBottom: "8px", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                    Contraseña
+                  </label>
+                  <input
+                    type="password"
+                    value={pwd}
+                    onChange={(e) => { setPwd(e.target.value); setError(false); }}
+                    placeholder="••••••••••••"
+                    autoFocus
+                    style={{
+                      width: "100%", padding: "14px 18px", background: "rgba(255,255,255,0.05)",
+                      border: error ? "1px solid rgba(244,63,94,0.6)" : "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: "12px", color: "#e2e8f0", fontSize: "16px", outline: "none",
+                      fontFamily: "'Poppins', sans-serif", transition: "border 0.2s", letterSpacing: "0.1em",
+                    }}
+                  />
+                  {error && (
+                    <div style={{ fontSize: "12px", color: "#f43f5e", marginTop: "8px", fontWeight: 500 }}>
+                      Contraseña incorrecta. Intenta de nuevo.
+                    </div>
+                  )}
+                </div>
+                <button type="submit" style={{
+                  width: "100%", padding: "14px", background: "#022841",
+                  border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px",
+                  color: "#fff", fontSize: "15px", fontWeight: 600, cursor: "pointer",
+                  fontFamily: "'Poppins', sans-serif", letterSpacing: "0.03em", transition: "all 0.2s",
+                }}>
+                  Entrar a la Bóveda
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [authed, setAuthed] = useState(sessionStorage.getItem("imp_auth") === "1");
+      if (!authed) return <Login onLogin={() => setAuthed(true)} />;
+      return <AdVault onLogout={() => { sessionStorage.removeItem("imp_auth"); setAuthed(false); }} />;
+    }
+
+    function AdVault({ onLogout }) {
       const [ads, setAds] = useState(DEFAULT_DATA);
       const [view, setView] = useState("dashboard");
       const [selectedAd, setSelectedAd] = useState(null);
@@ -606,6 +699,9 @@
                   </button>
                   <button onClick={() => { setFormData({ ...emptyAd }); setEditingId(null); setUploadError(""); setShowForm(true); }} style={btnPrimary}>
                     + Nuevo Anuncio
+                  </button>
+                  <button onClick={onLogout} style={{ ...btnGhost, borderColor: "rgba(239,68,68,0.2)", color: "#94a3b8", padding: "10px 14px", fontSize: "16px" }} title="Cerrar sesión">
+                    🔓
                   </button>
                 </>
               )}
@@ -1007,7 +1103,7 @@
     }
 
     const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(<AdVault />);
+    root.render(<App />);
   </script>
 </body>
 </html>
