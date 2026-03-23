@@ -141,9 +141,9 @@
 
     const StatusBadge = ({ status }) => {
       const colors = {
-        winner: { bg: "rgba(52,211,153,0.15)", text: "#34d399", label: "🏆 Winner" },
-        testing: { bg: "rgba(251,191,36,0.15)", text: "#fbbf24", label: "🧪 Testing" },
-        paused: { bg: "rgba(148,163,184,0.15)", text: "#94a3b8", label: "⏸ Paused" },
+        winner: { bg: "rgba(52,211,153,0.15)", text: "#34d399", label: "🏆 Ganador" },
+        testing: { bg: "rgba(251,191,36,0.15)", text: "#fbbf24", label: "🧪 Testeado" },
+        paused: { bg: "rgba(148,163,184,0.15)", text: "#94a3b8", label: "⏸ Pausado" },
       };
       const c = colors[status] || colors.testing;
       return (
@@ -517,7 +517,7 @@
           html += '<div class="ad-body">';
           html += '<div class="ad-top">';
           html += '<span class="badge badge-platform">' + ad.platform + ' · ' + ad.adFormat + '</span>';
-          var statusLabel = ad.status === "winner" ? "🏆 Winner" : ad.status === "testing" ? "🧪 Testing" : "⏸ Paused";
+          var statusLabel = ad.status === "winner" ? "🏆 Ganador" : ad.status === "testing" ? "🧪 Testeado" : "⏸ Pausado";
           html += '<span class="badge badge-' + ad.status + '">' + statusLabel + '</span>';
           if (ad.team && TEAMS[ad.team]) {
             html += '<span class="badge badge-team">' + TEAMS[ad.team].icon + ' ' + TEAMS[ad.team].name + '</span>';
@@ -790,9 +790,9 @@
               </select>
               <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ ...selectStyle, width: "auto", minWidth: "120px" }}>
                 <option value="all">Todo estado</option>
-                <option value="winner">🏆 Winner</option>
-                <option value="testing">🧪 Testing</option>
-                <option value="paused">⏸ Paused</option>
+                <option value="winner">🏆 Ganador</option>
+                <option value="testing">🧪 Testeado</option>
+                <option value="paused">⏸ Pausado</option>
               </select>
               <select value={filterPlatform} onChange={(e) => setFilterPlatform(e.target.value)} style={{ ...selectStyle, width: "auto", minWidth: "130px" }}>
                 <option value="all">Plataforma</option>
@@ -1030,7 +1030,7 @@
                   <div>
                     <label style={labelStyle}>Estado</label>
                     <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} style={selectStyle}>
-                      {STATUSES.map((s) => <option key={s} value={s}>{s === "winner" ? "🏆 Winner" : s === "testing" ? "🧪 Testing" : "⏸ Paused"}</option>)}
+                      {STATUSES.map((s) => <option key={s} value={s}>{s === "winner" ? "🏆 Ganador" : s === "testing" ? "🧪 Testeado" : "⏸ Pausado"}</option>)}
                     </select>
                   </div>
                   <div>
