@@ -497,9 +497,10 @@
         var exportList = idsToExport && idsToExport.length > 0
           ? ads.filter((a) => idsToExport.includes(a.id))
           : filteredAds;
-        if (exportList.length === 0) return;
-        var filteredAds = exportList;
-        const clientName = filterClient === "all" ? "Todos los clientes" : filterClient;
+        if (!exportList || exportList.length === 0) return;
+        var exportedAds = exportList;
+        var uniqueClients = [...new Set(exportedAds.map((a) => a.client).filter(Boolean))];
+        const clientName = uniqueClients.length === 1 ? uniqueClients[0] : "Todos los clientes";
         const today = new Date().toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" });
         const logoSrc = document.querySelector('img[alt="Imperians Agency"]') ? document.querySelector('img[alt="Imperians Agency"]').src : "";
 
@@ -540,7 +541,7 @@
           return html;
         }
 
-        var adsHTML = filteredAds.map(buildAdCard).join("");
+        var adsHTML = exportedAds.map(buildAdCard).join("");
         var logoHTML = logoSrc
           ? '<img src="' + logoSrc + '" alt="Imperians Agency" />'
           : '<span style="color:#fff;font-family:Cinzel,serif;font-size:20px">Imperians Agency</span>';
@@ -587,7 +588,7 @@
           + "<div class='header'>" + logoHTML
           + "<div class='header-right'>"
           + "<div class='client-name'>" + clientName + "</div>"
-          + "<div class='meta'>Generado el " + today + " \u00b7 " + filteredAds.length + " anuncio" + (filteredAds.length !== 1 ? "s" : "") + "</div>"
+          + "<div class='meta'>Generado el " + today + " \u00b7 " + exportedAds.length + " anuncio" + (exportedAds.length !== 1 ? "s" : "") + "</div>"
           + "</div></div>"
           + "<div class='content'>"
           + "<div class='report-title'>Reporte de anuncios \u00b7 Meta Ads</div>"
